@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unified Hospital Operations View</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F3F6F8;
+    --surface:#FFFFFF;
+    --surface-alt:#EAF0F3;
+    --ink:#16232E;
+    --ink-muted:#5B6B78;
+    --ink-faint:#8FA0AC;
+    --brand:#0F4C5C;
+    --brand-light:#1C7C93;
+    --brand-wash:#E4EEF0;
+    --ok:#2F8F5B;
+    --ok-wash:#E5F3EA;
+    --warn:#C98A1E;
+    --warn-wash:#FBF1DE;
+    --critical:#C24B4B;
+    --critical-wash:#FBE9E9;
+    --border:#DDE3E8;
+    --radius:12px;
+    --shadow:0 1px 2px rgba(22,35,46,0.04), 0 4px 16px rgba(22,35,46,0.05);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  .num{font-family:'IBM Plex Mono',monospace; font-variant-numeric: tabular-nums; letter-spacing:-0.02em;}
+  h1,h2,h3,.disp{font-family:'Space Grotesk',sans-serif;}
+  button{font-family:inherit; cursor:pointer;}
+  #app{max-width:1180px; margin:0 auto; padding:28px 24px 64px;}
+
+  /* Top bar */
+  .topbar{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:22px; flex-wrap:wrap;}
+  .brandmark{display:flex; align-items:center; gap:12px;}
+  .brandmark .dot{width:10px;height:10px;border-radius:3px; background:var(--brand);}
+  .brandmark h1{font-size:19px; font-weight:600; margin:0; color:var(--ink); letter-spacing:-0.01em;}
+  .brandmark .sub{font-size:12.5px; color:var(--ink-muted); margin-top:1px;}
+
+  .tabs{display:flex; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:3px; gap:2px;}
+  .tab-btn{border:none; background:transparent; padding:8px 16px; font-size:13.5px; font-weight:600; color:var(--ink-muted); border-radius:8px; transition:all .15s;}
+  .tab-btn.active{background:var(--brand); color:#fff;}
+  .tab-btn:not(.active):hover{background:var(--surface-alt); color:var(--ink);}
+
+  /* Data health strip */
+  .health{display:flex; align-items:center; gap:18px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px 16px; margin-bottom:22px; font-size:12.5px; color:var(--ink-muted); flex-wrap:wrap;}
+  .health b{color:var(--ink); font-weight:600;}
+  .health .seg{display:flex; align-items:center; gap:6px;}
+  .health .sep{width:1px; height:14px; background:var(--border);}
+  .pulse{width:7px;height:7px;border-radius:50%; background:var(--ok); box-shadow:0 0 0 3px var(--ok-wash);}
+
+  /* Hero stat strip */
+  .stat-strip{display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:26px;}
+  .stat-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px 16px 14px; box-shadow:var(--shadow);}
+  .stat-card .label{font-size:11.5px; color:var(--ink-muted); font-weight:600; text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px;}
+  .stat-card .value{font-size:28px; font-weight:600; color:var(--brand); line-height:1;}
+  .stat-card .value .of{font-size:15px; color:var(--ink-faint); font-weight:500;}
+
+  .section-title{font-size:14px; font-weight:600; color:var(--ink-muted); text-transform:uppercase; letter-spacing:.04em; margin:0 0 12px 2px;}
+
+  /* Ward cards */
+  .ward-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-bottom:28px;}
+  .ward-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px 20px; box-shadow:var(--shadow); cursor:pointer; transition:transform .12s, box-shadow .12s; text-align:left;}
+  .ward-card:hover{transform:translateY(-2px); box-shadow:0 4px 20px rgba(22,35,46,0.09);}
+  .ward-card .wc-top{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;}
+  .ward-card h3{font-size:17px; margin:0 0 2px; color:var(--ink);}
+  .ward-card .wc-sub{font-size:12px; color:var(--ink-muted);}
+  .flag-badge{display:flex; align-items:center; gap:5px; background:var(--warn-wash); color:var(--warn); font-size:11.5px; font-weight:600; padding:4px 9px; border-radius:20px; white-space:nowrap;}
+  .flag-badge.crit{background:var(--critical-wash); color:var(--critical);}
+  .occ-row{display:flex; align-items:baseline; gap:8px; margin-bottom:6px;}
+  .occ-row .big{font-size:22px; font-weight:600; color:var(--ink);}
+  .occ-row .pct{font-size:12.5px; color:var(--ink-muted);}
+  .bar-track{height:7px; background:var(--surface-alt); border-radius:6px; overflow:hidden; margin-bottom:14px;}
+  .bar-fill{height:100%; border-radius:6px;}
+  .wc-meta{display:flex; gap:18px; font-size:12.5px; color:var(--ink-muted);}
+  .wc-meta b{color:var(--ink); font-weight:600;}
+
+  /* Ward detail */
+  .back-btn{display:inline-flex; align-items:center; gap:6px; background:none; border:none; color:var(--brand-light); font-size:13.5px; font-weight:600; padding:0; margin-bottom:16px;}
+  .back-btn:hover{text-decoration:underline;}
+  .detail-head{display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:20px; flex-wrap:wrap; gap:10px;}
+  .detail-head h2{font-size:24px; margin:0;}
+  .detail-head .occ-pill{font-size:13px; font-weight:600; padding:6px 14px; border-radius:20px;}
+  .panel-grid{display:grid; grid-template-columns:1.3fr 1fr; gap:16px; margin-bottom:16px;}
+  .panel{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px 20px; box-shadow:var(--shadow);}
+  .panel h4{font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-muted); margin:0 0 14px;}
+
+  .bed-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px;}
+  .bed-tile{border:1px solid var(--border); border-radius:8px; padding:9px 10px; position:relative;}
+  .bed-tile .bed-id{font-size:11px; font-weight:600; color:var(--ink-muted); margin-bottom:3px;}
+  .bed-tile .bed-status{font-size:12.5px; font-weight:600;}
+  .bed-tile.occ{background:var(--brand-wash);}
+  .bed-tile.vac{background:var(--surface-alt);}
+  .bed-tile.review{background:var(--warn-wash); border-color:#EAD19C;}
+  .bed-tile .flag-dot{position:absolute; top:8px; right:8px; width:7px; height:7px; border-radius:50%; background:var(--warn); cursor:help;}
+  .bed-tile.resolved-flag .flag-dot{background:var(--brand-light);}
+
+  .staff-row{display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid var(--border); font-size:13.5px;}
+  .staff-row:last-child{border-bottom:none;}
+  .staff-row .n{font-weight:600; color:var(--brand);}
+
+  .bottleneck-item{padding:10px 0; border-bottom:1px solid var(--border);}
+  .bottleneck-item:last-child{border-bottom:none;}
+  .bottleneck-item .bi-top{display:flex; justify-content:space-between; font-size:13px; margin-bottom:3px;}
+  .bottleneck-item .bi-wait{font-weight:600;}
+  .bottleneck-item .bi-sub{font-size:11.5px; color:var(--ink-muted);}
+
+  .conflict-item{display:flex; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); font-size:12.5px; line-height:1.5;}
+  .conflict-item:last-child{border-bottom:none;}
+  .conflict-item .ci-tag{flex-shrink:0; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; padding:3px 7px; border-radius:5px; height:fit-content;}
+  .ci-tag.resolved{background:var(--ok-wash); color:var(--ok);}
+  .ci-tag.review{background:var(--warn-wash); color:var(--warn);}
+  .conflict-item .ci-text{color:var(--ink-muted);}
+  .conflict-item .ci-text b{color:var(--ink); font-weight:600;}
+  .empty-note{font-size:12.5px; color:var(--ink-faint); font-style:italic;}
+
+  /* Pharmacy */
+  .pharm-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:16px;}
+  .med-list{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden;}
+  .med-row{display:grid; grid-template-columns:1.6fr .9fr .9fr .7fr; gap:10px; align-items:center; padding:12px 18px; border-bottom:1px solid var(--border); font-size:13px;}
+  .med-row.head{background:var(--surface-alt); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-muted);}
+  .med-row:last-child{border-bottom:none;}
+  .med-name{font-weight:600;}
+  .med-cat{font-size:11px; color:var(--ink-faint);}
+  .status-pill{font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; text-align:center; width:fit-content;}
+  .status-pill.critical{background:var(--critical-wash); color:var(--critical);}
+  .status-pill.low{background:var(--warn-wash); color:var(--warn);}
+  .status-pill.adequate{background:var(--ok-wash); color:var(--ok);}
+
+  .side-panel-stack{display:flex; flex-direction:column; gap:16px;}
+  .reorder-item{padding:10px 0; border-bottom:1px solid var(--border); font-size:12.5px;}
+  .reorder-item:last-child{border-bottom:none;}
+  .reorder-item .ri-top{display:flex; justify-content:space-between; font-weight:600; font-size:13px; margin-bottom:3px;}
+  .reorder-item .ri-sub{color:var(--ink-muted);}
+  .expiry-item{display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid var(--border); font-size:12.5px;}
+  .expiry-item:last-child{border-bottom:none;}
+  .expiry-days{font-weight:700; font-family:'IBM Plex Mono',monospace;}
+
+  @media (max-width:820px){
+    .stat-strip{grid-template-columns:repeat(2,1fr);}
+    .ward-grid{grid-template-columns:1fr;}
+    .panel-grid{grid-template-columns:1fr;}
+    .pharm-grid{grid-template-columns:1fr;}
+    .bed-grid{grid-template-columns:repeat(3,1fr);}
+    .med-row{grid-template-columns:1.4fr .8fr .8fr;}
+    .med-row .mr-reorder{display:none;}
+  }
+  :focus-visible{outline:2px solid var(--brand-light); outline-offset:2px;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+const NOW = new Date('2026-08-29T10:00:00');
+
+/* ============== RAW DATA (deliberately inconsistent across sources) ============== */
+const WARDS = [
+  {id:'GM', name:'General Medicine', beds:12, doctors:5, nurses:10, staff:4},
+  {id:'SU', name:'Surgery', beds:10, doctors:6, nurses:9, staff:4},
+  {id:'IC', name:'ICU', beds:8, doctors:7, nurses:12, staff:5},
+  {id:'PE', name:'Pediatrics', beds:10, doctors:4, nurses:8, staff:3},
+];
+
+const HIS = [
+  {patient:'P1001',ward:'GM',bed:'GM-01',adm:'2026-08-26T09:00',dis:null},
+  {patient:'P1002',ward:'GM',bed:'GM-02',adm:'2026-08-27T11:00',dis:null},
+  {patient:'P1003',ward:'GM',bed:'GM-03',adm:'2026-08-25T14:00',dis:null},
+  {patient:'P1004',ward:'GM',bed:'GM-04',adm:'2026-08-28T08:00',dis:null},
+  {patient:'P1005',ward:'GM',bed:'GM-05',adm:'2026-08-27T16:00',dis:null},
+  {patient:'P1006',ward:'GM',bed:'GM-06',adm:'2026-08-28T10:00',dis:null},
+  {patient:'P1010',ward:'GM',bed:'GM-07',adm:'2026-08-24T09:00',dis:'2026-08-29T07:10'},
+  {patient:'P1007',ward:'GM',bed:'GM-08',adm:'2026-08-26T12:00',dis:null},
+  {patient:'P1005',ward:'GM',bed:'GM-09',adm:'2026-08-27T09:00',dis:null},
+  {patient:'P1009',ward:'GM',bed:'GM-09',adm:'2026-08-28T15:00',dis:null},
+  {patient:'P1008',ward:'GM',bed:'GM-11',adm:'2026-08-27T13:00',dis:null},
+
+  {patient:'P1011',ward:'SU',bed:'SU-01',adm:'2026-08-27T09:00',dis:null},
+  {patient:'P1012',ward:'SU',bed:'SU-02',adm:'2026-08-26T09:00',dis:null},
+  {patient:'P1020',ward:'SU',bed:'SU-03',adm:'2026-08-28T09:00',dis:null},
+  {patient:'P1013',ward:'SU',bed:'SU-04',adm:'2026-08-27T09:00',dis:null},
+  {patient:'P1014',ward:'SU',bed:'SU-05',adm:'2026-08-28T09:00',dis:null},
+  {patient:'P1016',ward:'SU',bed:'SU-07',adm:'2026-08-27T09:00',dis:null},
+  {patient:'P1017',ward:'SU',bed:'SU-08',adm:'2026-08-28T09:00',dis:null},
+
+  {patient:'P1021',ward:'IC',bed:'IC-01',adm:'2026-08-28T09:00',dis:null},
+  {patient:'P1030',ward:'IC',bed:'IC-02',adm:'2026-08-27T09:00',dis:null},
+  {patient:'P1022',ward:'IC',bed:'IC-03',adm:'2026-08-28T09:00',dis:null},
+  {patient:'P1023',ward:'IC',bed:'IC-04',adm:'2026-08-27T09:00',dis:null},
+  {patient:'P1024',ward:'IC',bed:'IC-06',adm:'2026-08-28T09:00',dis:null},
+  {patient:'P1025',ward:'IC',bed:'IC-07',adm:'2026-08-28T09:00',dis:null},
+
+  {patient:'P1031',ward:'PE',bed:'PE-01',adm:'2026-08-27T09:00',dis:null},
+  {patient:'P1032',ward:'PE',bed:'PE-02',adm:'2026-08-28T09:00',dis:null},
+  {patient:'P1033',ward:'PE',bed:'PE-03',adm:'2026-08-28T09:00',dis:null},
+  {patient:'P1034',ward:'PE',bed:'PE-04',adm:'2026-08-27T09:00',dis:null},
+  {patient:'P1040',ward:'PE',bed:'PE-05',adm:'2026-08-29T06:00',dis:null},
+  {patient:'P1035',ward:'PE',bed:'PE-07',adm:'2026-08-27T09:00',dis:null},
+  {patient:'P1036',ward:'PE',bed:'PE-08',adm:'2026-08-28T09:00',dis:null},
+];
+
+const LAB = [
+  {order:'L1',patient:'P1001',ward:'GM',odt:'2026-08-27T09:00',rdt:'2026-08-27T12:00',test:'CBC'},
+  {order:'L2',patient:'P1003',ward:'GM',odt:'2026-08-29T05:00',rdt:null,test:'Blood Culture'},
+  {order:'L3',patient:'P1004',ward:'GM',odt:'2026-08-28T09:00',rdt:'2026-08-28T13:00',test:'BMP'},
+  {order:'L4',patient:'P1006',ward:'GM',odt:'2026-08-29T08:00',rdt:'2026-08-29T09:30',test:'LFT'},
+  {order:'L5',patient:'P1011',ward:'SU',odt:'2026-08-28T09:00',rdt:'2026-08-28T14:00',test:'CBC'},
+  {order:'L6',patient:'P1013',ward:'SU',odt:'2026-08-29T04:00',rdt:null,test:'Coag Panel'},
+  {order:'L7',patient:'P1020',ward:'SU',odt:'2026-08-29T07:30',rdt:null,test:'CBC'},
+  {order:'L8',patient:'P1021',ward:'IC',odt:'2026-08-28T02:00',rdt:'2026-08-28T02:40',test:'ABG'},
+  {order:'L9',patient:'P1023',ward:'IC',odt:'2026-08-29T01:00',rdt:null,test:'Troponin'},
+  {order:'L10',patient:'P1024',ward:'IC',odt:'2026-08-28T09:00',rdt:'2026-08-28T11:00',test:'CBC'},
+  {order:'L11',patient:'P1025',ward:'IC',odt:'2026-08-29T06:00',rdt:null,test:'Lactate'},
+  {order:'L12',patient:'P1031',ward:'PE',odt:'2026-08-27T09:00',rdt:'2026-08-27T15:00',test:'CBC'},
+  {order:'L13',patient:'P1033',ward:'PE',odt:'2026-08-29T07:00',rdt:null,test:'CRP'},
+  {order:'L14',patient:'P1040',ward:'GM',odt:'2026-08-27T10:00',rdt:null,test:'CBC'},
+  {order:'L15',patient:'P1035',ward:'PE',odt:'2026-08-27T09:00',rdt:'2026-08-27T14:00',test:'Blood Culture'},
+  {order:'L16',patient:'P1017',ward:'SU',odt:'2026-08-29T03:00',rdt:null,test:'X-Ray Path'},
+  {order:'L17',patient:'P1030',ward:'IC',odt:'2026-08-28T09:00',rdt:'2026-08-28T12:00',test:'CBC'},
+];
+
+const SHEET = [
+  {ward:'GM',bed:'GM-01',patient:'P1001',status:'Occupied',upd:'2026-08-29T07:00'},
+  {ward:'GM',bed:'GM-02',patient:'P1002',status:'Occupied',upd:'2026-08-29T07:00'},
+  {ward:'GM',bed:'GM-03',patient:'P1003',status:'Occupied',upd:'2026-08-29T07:00'},
+  {ward:'GM',bed:'GM-04',patient:'P1004',status:'Occupied',upd:'2026-08-29T07:00'},
+  {ward:'GM',bed:'GM-05',patient:'P1005',status:'Occupied',upd:'2026-08-29T07:00'},
+  {ward:'GM',bed:'GM-06',patient:'P1006',status:'Occupied',upd:'2026-08-29T07:00'},
+  {ward:'GM',bed:'GM-07',patient:'P1010',status:'Occupied',upd:'2026-08-28T18:00'},
+  {ward:'GM',bed:'GM-08',patient:'P1007',status:'Occupied',upd:'2026-08-29T07:00'},
+  {ward:'GM',bed:'GM-09',patient:'P1009',status:'Occupied',upd:'2026-08-29T07:00'},
+  {ward:'GM',bed:'GM-11',patient:'P1008',status:'Occupied',upd:'2026-08-29T07:00'},
+
+  {ward:'SU',bed:'SU-01',patient:'P1011',status:'Occupied',upd:'2026-08-29T07:00'},
+  {ward:'SU',bed:'SU-02',patient:'P1012',status:'Occupied',upd:'2026-08-29T07:00'},
+  {ward:'SU',bed:'SU-03',patient:'',status:'Vacant',upd:'2026-08-29T06:00'},
+  {ward:'SU',bed:'SU-04',patient:'P1013',status:'Occupied',upd:'2026-08-29T07:00'},
+  {ward:'SU',bed:'SU-05',patient:'P1014',status:'Occupied',upd:'2026-08-29T07:00'},
+  {ward:'SU',bed:'SU-07',patient:'P1016',status:'Occupied',upd:'2026-08-29T07:00'},
+  {ward:'SU',bed:'SU-08',patient:'P1017',status:'Occupied',upd:'2026-08-29T07:00'},
+
+  {ward:'IC',bed:'IC-01',patient:'P1021',status:'Occupied',upd:'2026-08-29T07:00'},
+  {ward:'IC',bed:'IC-02',patient:'P1300',status:'Occupied',upd:'2026-08-29T07:00'},
+  {ward:'IC',bed:'IC-03',patient:'P1022',status:'Occupied',upd:'2026-08-29T07:00'},
+  {ward:'IC',bed:'IC-04',patient:'P1023',status:'Occupied',upd:'2026-08-29T07:00'},
+  {ward:'IC',bed:'IC-06',patient:'P1024',status:'Occupied',upd:'2026-08-29T07:00'},
+  {ward:'IC',bed:'IC-07',patient:'P1025',status:'Occupied',upd:'2026-08-29T07:00'},
+
+  {ward:'PE',bed:'PE-01',patient:'P1031',status:'Occupied',upd:'2026-08-29T07:00'},
+  {ward:'PE',bed:'PE-02',patient:'P1032',status:'Occupied',upd:'2026-08-29T07:00'},
+  {ward:'PE',bed:'PE-03',patient:'P1033',status:'Occupied',upd:'2026-08-29T07:00'},
+  {ward:'PE',bed:'PE-04',patient:'P1034',status:'Occupied',upd:'2026-08-29T07:00'},
+  {ward:'PE',bed:'PE-05',patient:'P1040',status:'Occupied',upd:'2026-08-29T07:00'},
+  {ward:'PE',bed:'PE-07',patient:'P1035',status:'Occupied',upd:'2026-08-29T07:00'},
+  {ward:'PE',bed:'PE-08',patient:'P1036',status:'Occupied',upd:'2026-08-29T07:00'},
+];
+
+const PHARMACY = [
+  {name:'Amoxicillin 500mg', category:'Antibiotic', unit:'capsules', stock:2500, weeklyUse:2100, expiry:'2027-04-10'},
+  {name:'Paracetamol 650mg', category:'Analgesic', unit:'tablets', stock:4200, weeklyUse:3000, expiry:'2027-03-01'},
+  {name:'Normal Saline 500ml IV', category:'IV Fluid', unit:'bottles', stock:180, weeklyUse:462, expiry:'2026-09-20'},
+  {name:'Insulin Regular', category:'Endocrine', unit:'vials', stock:40, weeklyUse:55, expiry:'2026-09-10'},
+  {name:'Ceftriaxone 1g Inj', category:'Antibiotic', unit:'vials', stock:90, weeklyUse:180, expiry:'2026-11-05'},
+  {name:'Atropine Inj', category:'Emergency', unit:'ampoules', stock:60, weeklyUse:20, expiry:'2027-01-15'},
+  {name:'Diazepam 5mg', category:'Sedative', unit:'tablets', stock:500, weeklyUse:140, expiry:'2026-12-01'},
+  {name:'Surgical Gloves', category:'Consumable', unit:'boxes', stock:75, weeklyUse:130, expiry:'2028-01-01'},
+  {name:'N95 Masks', category:'Consumable', unit:'boxes', stock:20, weeklyUse:50, expiry:'2027-06-01'},
+  {name:'Adrenaline Inj', category:'Emergency', unit:'ampoules', stock:15, weeklyUse:18, expiry:'2026-09-05'},
+  {name:'Metformin 500mg', category:'Endocrine', unit:'tablets', stock:3000, weeklyUse:800, expiry:'2027-05-01'},
+  {name:'Ringer Lactate 500ml IV', category:'IV Fluid', unit:'bottles', stock:400, weeklyUse:250, expiry:'2026-10-01'},
+];
+
+/* ============== RECONCILIATION ENGINE ============== */
+function hisStateForBed(bed){
+  const rows = HIS.filter(r=>r.bed===bed);
+  if(!rows.length) return {status:'unknown'};
+  const active = rows.filter(r=>!r.dis);
+  if(active.length){
+    active.sort((a,b)=>new Date(b.adm)-new Date(a.adm));
+    const cur = active[0];
+    return {status:'occupied', patient:cur.patient, since:new Date(cur.adm), superseded:active.slice(1)};
+  }
+  rows.sort((a,b)=>new Date(b.dis)-new Date(a.dis));
+  return {status:'vacant', since:new Date(rows[0].dis)};
+}
+
+function fmtTime(d){
+  return d.toLocaleString('en-IN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'short'});
+}
+
+function reconcileWard(ward){
+  const bedIds=[]; for(let i=1;i<=ward.beds;i++) bedIds.push(`${ward.id}-${String(i).padStart(2,'0')}`);
+  let occupied=0, conflicts=[], beds=[];
+  bedIds.forEach(bedId=>{
+    const his = hisStateForBed(bedId);
+    const sheet = SHEET.find(s=>s.bed===bedId);
+    let status = his.status==='unknown' ? (sheet ? sheet.status.toLowerCase() : 'vacant') : his.status;
+    let patient = his.patient;
+    let bedFlags=[];
+
+    if(his.superseded && his.superseded.length){
+      his.superseded.forEach(s=>{
+        bedFlags.push({severity:'resolved', text:`Duplicate admission record for <b>${s.patient}</b> found on this bed (older HIS entry, ${fmtTime(new Date(s.adm))}) — superseded by the later admission of ${his.patient}. Not double-counted.`});
+      });
+    }
+
+    if(his.status!=='unknown' && sheet){
+      const sheetOcc = sheet.status.toLowerCase()==='occupied';
+      const hisOcc = his.status==='occupied';
+      if(sheetOcc!==hisOcc){
+        if(!hisOcc && sheetOcc){
+          if(new Date(sheet.upd) < his.since){
+            status='vacant';
+            bedFlags.push({severity:'resolved', text:`Manual sheet still showed <b>occupied (${sheet.patient})</b>, but HIS recorded discharge at ${fmtTime(his.since)} — sheet hadn't been updated since ${fmtTime(new Date(sheet.upd))}. Resolved as <b>vacant</b> using HIS (system of record).`});
+          } else {
+            status='needs_review';
+            bedFlags.push({severity:'review', text:`Sheet shows occupied, updated *after* the HIS discharge time — may be an undocumented readmission. Held for staff confirmation.`});
+          }
+        } else if(hisOcc && !sheetOcc){
+          const labEvidence = LAB.some(l=>l.patient===his.patient && !l.rdt);
+          status='needs_review'; patient=his.patient;
+          bedFlags.push({severity:'review', text:`Manual sheet marked this bed <b>vacant</b>, but HIS shows <b>${his.patient}</b> still admitted${labEvidence?' and a lab order is still pending for this patient':''}. Kept occupied per HIS; flagged for staff confirmation.`});
+        }
+      } else if(hisOcc && sheetOcc && sheet.patient!==his.patient){
+        bedFlags.push({severity:'resolved', text:`Manual sheet listed patient <b>${sheet.patient}</b>, but HIS shows <b>${his.patient}</b> for this bed — likely a transcription error. Used HIS patient ID.`});
+      }
+    }
+
+    if(status==='occupied'||status==='needs_review'){ occupied++; }
+    beds.push({id:bedId, status, patient, flags:bedFlags});
+    bedFlags.forEach(f=>conflicts.push({bed:bedId, ...f}));
+  });
+
+  LAB.forEach(l=>{
+    const hisRows = HIS.filter(r=>r.patient===l.patient);
+    if(hisRows.length){
+      const curWard = hisRows.sort((a,b)=>new Date(b.adm)-new Date(a.adm))[0].ward;
+      if(curWard!==l.ward && curWard===ward.id){
+        conflicts.push({bed:null, severity:'resolved', text:`Lab order <b>${l.order}</b> (${l.test}) for ${l.patient} was logged against ${WARDS.find(w=>w.id===l.ward).name}, but the patient has since transferred to ${ward.name} per HIS. Reassigned to current ward.`});
+      }
+    }
+  });
+
+  const bottlenecks = LAB.filter(l=>!l.rdt).map(l=>{
+    const hisRows = HIS.filter(r=>r.patient===l.patient);
+    const curWard = hisRows.length ? hisRows.sort((a,b)=>new Date(b.adm)-new Date(a.adm))[0].ward : l.ward;
+    return {...l, curWard, hrs:(NOW-new Date(l.odt))/3600000};
+  }).filter(b=>b.curWard===ward.id).sort((a,b)=>b.hrs-a.hrs);
+
+  return {...ward, beds, occupied, vacant:ward.beds-occupied, occupancyPct:Math.round(occupied/ward.beds*100), conflicts, bottlenecks};
+}
+
+const RECONCILED = WARDS.map(reconcileWard);
+const TOTALS = RECONCILED.reduce((a,r)=>({
+  doctors:a.doctors+r.doctors, nurses:a.nurses+r.nurses, staff:a.staff+r.staff,
+  beds:a.beds+r.beds.length, occupied:a.occupied+r.occupied
+}),{doctors:0,nurses:0,staff:0,beds:0,occupied:0});
+const TOTAL_CONFLICTS = RECONCILED.reduce((a,r)=>a+r.conflicts.length,0);
+const RESOLVED_CONFLICTS = RECONCILED.reduce((a,r)=>a+r.conflicts.filter(c=>c.severity==='resolved').length,0);
+const REVIEW_CONFLICTS = TOTAL_CONFLICTS - RESOLVED_CONFLICTS;
+
+/* ============== PHARMACY DERIVED ============== */
+function pharmDerived(m){
+  const daysRemaining = m.stock/(m.weeklyUse/7);
+  const status = daysRemaining<3 ? 'critical' : daysRemaining<7 ? 'low' : 'adequate';
+  const expiryDays = Math.round((new Date(m.expiry)-NOW)/86400000);
+  const reorderQty = status!=='adequate' ? Math.max(0, Math.round(m.weeklyUse*2 - m.stock)) : 0;
+  return {...m, daysRemaining, status, expiryDays, reorderQty};
+}
+const PHARM = PHARMACY.map(pharmDerived);
+const PHARM_CRITICAL = PHARM.filter(p=>p.status==='critical').length;
+const PHARM_LOW = PHARM.filter(p=>p.status==='low').length;
+const PHARM_EXPIRING = PHARM.filter(p=>p.expiryDays<=30).length;
+
+/* ============== STATE ============== */
+let state = {tab:'hospital', view:'overview', wardId:null};
+
+function setState(next){ state={...state, ...next}; render(); window.scrollTo({top:0,behavior:'instant'}); }
+
+/* ============== RENDER HELPERS ============== */
+function occColor(pct){ return pct>=90?'var(--critical)':pct>=75?'var(--warn)':'var(--ok)'; }
+
+function statCard(label,value,of){
+  return `<div class="stat-card"><div class="label">${label}</div><div class="value num">${value}${of?`<span class="of"> / ${of}</span>`:''}</div></div>`;
+}
+
+function wardCard(r){
+  const color = occColor(r.occupancyPct);
+  const hasReview = r.conflicts.some(c=>c.severity==='review');
+  const hasResolved = r.conflicts.some(c=>c.severity==='resolved');
+  let badge = '';
+  if(hasReview) badge = `<span class="flag-badge crit">⚑ ${r.conflicts.filter(c=>c.severity==='review').length} needs review</span>`;
+  else if(hasResolved) badge = `<span class="flag-badge">${r.conflicts.length} auto-resolved</span>`;
+  return `
+  <button class="ward-card" data-ward="${r.id}">
+    <div class="wc-top">
+      <div><h3>${r.name}</h3><div class="wc-sub">${r.id} · Ward ${r.id}</div></div>
+      ${badge}
+    </div>
+    <div class="occ-row"><span class="big num">${r.occupied}<span style="color:var(--ink-faint); font-weight:500;">/${r.beds.length}</span></span><span class="pct">beds occupied · ${r.occupancyPct}%</span></div>
+    <div class="bar-track"><div class="bar-fill" style="width:${r.occupancyPct}%; background:${color};"></div></div>
+    <div class="wc-meta"><span><b class="num">${r.doctors}</b> doctors</span><span><b class="num">${r.nurses}</b> nurses</span><span><b class="num">${r.bottlenecks.length}</b> pending labs</span></div>
+  </button>`;
+}
+
+function renderOverview(){
+  return `
+  <div class="stat-strip">
+    ${statCard('Doctors', TOTALS.doctors)}
+    ${statCard('Nurses', TOTALS.nurses)}
+    ${statCard('Support Staff', TOTALS.staff)}
+    ${statCard('Beds Occupied', TOTALS.occupied, TOTALS.beds)}
+    ${statCard('Patients', TOTALS.occupied)}
+  </div>
+  <div class="section-title">Wards</div>
+  <div class="ward-grid">${RECONCILED.map(wardCard).join('')}</div>`;
+}
+
+function bedTile(b){
+  let cls='vac', label='Vacant';
+  if(b.status==='occupied'){cls='occ'; label=b.patient;}
+  else if(b.status==='needs_review'){cls='review'; label=b.patient+' ?';}
+  const hasFlag = b.flags.length>0;
+  const resolvedOnly = hasFlag && b.flags.every(f=>f.severity==='resolved');
+  const title = hasFlag ? b.flags.map(f=>f.text.replace(/<[^>]+>/g,'')).join(' ') : '';
+  return `<div class="bed-tile ${cls} ${resolvedOnly?'resolved-flag':''}" ${title?`title="${title}"`:''}>
+    <div class="bed-id">${b.id}</div><div class="bed-status">${label}</div>
+    ${hasFlag?'<div class="flag-dot"></div>':''}
+  </div>`;
+}
+
+function renderWardDetail(wardId){
+  const r = RECONCILED.find(w=>w.id===wardId);
+  const color = occColor(r.occupancyPct);
+  return `
+  <button class="back-btn" data-back="1">← All wards</button>
+  <div class="detail-head">
+    <h2>${r.name}</h2>
+    <span class="occ-pill" style="background:${color}22; color:${color};">${r.occupied}/${r.beds.length} occupied · ${r.occupancyPct}%</span>
+  </div>
+  <div class="panel-grid">
+    <div class="panel">
+      <h4>Beds</h4>
+      <div class="bed-grid">${r.beds.map(bedTile).join('')}</div>
+    </div>
+    <div class="panel">
+      <h4>Staff on ward</h4>
+      <div class="staff-row"><span>Doctors</span><span class="n num">${r.doctors}</span></div>
+      <div class="staff-row"><span>Nurses</span><span class="n num">${r.nurses}</span></div>
+      <div class="staff-row"><span>Support staff</span><span class="n num">${r.staff}</span></div>
+    </div>
+  </div>
+  <div class="panel-grid">
+    <div class="panel">
+      <h4>Lab bottlenecks — pending results</h4>
+      ${r.bottlenecks.length ? r.bottlenecks.map(b=>{
+        const sev = b.hrs>=8?'var(--critical)':b.hrs>=4?'var(--warn)':'var(--ok)';
+        return `<div class="bottleneck-item"><div class="bi-top"><span>${b.patient} — ${b.test}</span><span class="bi-wait num" style="color:${sev}">${b.hrs.toFixed(1)}h</span></div><div class="bi-sub">Ordered ${fmtTime(new Date(b.odt))} · order ${b.order}</div></div>`;
+      }).join('') : '<div class="empty-note">No pending lab orders for this ward.</div>'}
+    </div>
+    <div class="panel">
+      <h4>Conflicts &amp; resolutions</h4>
+      ${r.conflicts.length ? r.conflicts.map(c=>`
+        <div class="conflict-item">
+          <span class="ci-tag ${c.severity}">${c.severity==='resolved'?'Resolved':'Review'}</span>
+          <span class="ci-text">${c.bed?`<b>${c.bed}</b> — `:''}${c.text}</span>
+        </div>`).join('') : '<div class="empty-note">No conflicts detected for this ward today.</div>'}
+    </div>
+  </div>`;
+}
+
+function renderPharmacy(){
+  const sorted = [...PHARM].sort((a,b)=>a.daysRemaining-b.daysRemaining);
+  const shortages = PHARM.filter(p=>p.status!=='adequate').sort((a,b)=>a.daysRemaining-b.daysRemaining);
+  const expiring = PHARM.filter(p=>p.expiryDays<=30).sort((a,b)=>a.expiryDays-b.expiryDays);
+  return `
+  <div class="stat-strip" style="grid-template-columns:repeat(4,1fr);">
+    ${statCard('Medicines Tracked', PHARM.length)}
+    ${statCard('Critical Stock', PHARM_CRITICAL)}
+    ${statCard('Low Stock', PHARM_LOW)}
+    ${statCard('Expiring ≤30 Days', PHARM_EXPIRING)}
+  </div>
+  <div class="pharm-grid">
+    <div>
+      <div class="section-title">Inventory</div>
+      <div class="med-list">
+        <div class="med-row head"><span>Medicine</span><span>Stock</span><span>Days left</span><span>Status</span></div>
+        ${sorted.map(p=>`
+          <div class="med-row">
+            <div><div class="med-name">${p.name}</div><div class="med-cat">${p.category}</div></div>
+            <div class="num">${p.stock} ${p.unit}</div>
+            <div class="num">${p.daysRemaining.toFixed(1)}d</div>
+            <div class="mr-reorder"><span class="status-pill ${p.status}">${p.status}</span></div>
+          </div>`).join('')}
+      </div>
+    </div>
+    <div class="side-panel-stack">
+      <div class="panel">
+        <h4>Shortage alerts — most urgent first</h4>
+        ${shortages.length ? shortages.map(p=>`
+          <div class="reorder-item">
+            <div class="ri-top"><span>${p.name}</span><span class="num" style="color:${p.status==='critical'?'var(--critical)':'var(--warn)'}">${p.daysRemaining.toFixed(1)}d left</span></div>
+            <div class="ri-sub">Suggested reorder: <b class="num">${p.reorderQty}</b> ${p.unit} (brings to ~2 weeks buffer)</div>
+          </div>`).join('') : '<div class="empty-note">No shortages — all stock levels adequate.</div>'}
+      </div>
+      <div class="panel">
+        <h4>Expiry watch — next 30 days</h4>
+        ${expiring.length ? expiring.map(p=>`
+          <div class="expiry-item"><span>${p.name}</span><span class="expiry-days" style="color:${p.expiryDays<=10?'var(--critical)':'var(--warn)'}">${p.expiryDays}d</span></div>`).join('') : '<div class="empty-note">Nothing expiring in the next 30 days.</div>'}
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ============== MAIN RENDER ============== */
+function render(){
+  const app = document.getElementById('app');
+  const bodyHtml = state.tab==='pharmacy' ? renderPharmacy()
+    : state.view==='ward' ? renderWardDetail(state.wardId)
+    : renderOverview();
+
+  app.innerHTML = `
+    <div class="topbar">
+      <div class="brandmark">
+        <span class="dot"></span>
+        <div><h1>Unified Ops View</h1><div class="sub">Reconciled from HIS, lab log &amp; bed sheet — one view, no manual compilation</div></div>
+      </div>
+      <div class="tabs">
+        <button class="tab-btn ${state.tab==='hospital'?'active':''}" data-tab="hospital">Hospital Ops</button>
+        <button class="tab-btn ${state.tab==='pharmacy'?'active':''}" data-tab="pharmacy">Pharmacy</button>
+      </div>
+    </div>
+    <div class="health">
+      <span class="seg"><span class="pulse"></span> <b>Live reconciled</b> as of ${fmtTime(NOW)}</span>
+      <span class="sep"></span>
+      <span class="seg">${TOTAL_CONFLICTS} conflicts found across sources today</span>
+      <span class="sep"></span>
+      <span class="seg" style="color:var(--ok);">${RESOLVED_CONFLICTS} auto-resolved</span>
+      <span class="sep"></span>
+      <span class="seg" style="color:var(--warn);">${REVIEW_CONFLICTS} flagged for staff review</span>
+    </div>
+    ${bodyHtml}
+  `;
+
+  app.querySelectorAll('[data-tab]').forEach(el=>el.addEventListener('click',()=>setState({tab:el.dataset.tab, view:'overview', wardId:null})));
+  app.querySelectorAll('[data-ward]').forEach(el=>el.addEventListener('click',()=>setState({view:'ward', wardId:el.dataset.ward})));
+  const back = app.querySelector('[data-back]');
+  if(back) back.addEventListener('click',()=>setState({view:'overview', wardId:null}));
+}
+
+render();
+</script>
+</body>
+</html>
