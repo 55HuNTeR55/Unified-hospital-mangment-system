@@ -226,10 +226,6 @@ This allows authorized users to verify **who performed an action and when it occ
 * Python / Node.js
 * Data processing and reconciliation logic
 
-### Database
-
-* [Add your database here: MySQL / PostgreSQL / MongoDB etc.]
-
 ### Blockchain
 
 * Solidity
@@ -242,9 +238,7 @@ This allows authorized users to verify **who performed an action and when it occ
 * Git
 * GitHub
 * VS Code
-* Hardhat / Remix *(if used)*
-
-> Update the technology list according to the exact tools used in your implementation.
+* Hardhat / Remix 
 
 ---
 
